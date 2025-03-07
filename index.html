@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CyberTac - Advanced Tic-Tac-Toe</title>
+    <style>
+        :root {
+            --primary: #00ff9d;
+            --secondary: #ff006e;
+            --bg: #1a1a1a;
+            --glow: 0 0 25px;
+        }
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            color: white;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .cyber-box {
+            border: 3px solid var(--primary);
+            box-shadow: var(--glow) var(--primary);
+            padding: 2rem;
+            border-radius: 15px;
+            background: rgba(0,0,0,0.7);
+            position: relative;
+            margin: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            gap: 15px;
+            margin: 2rem 0;
+        }
+
+        .cell {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3.5rem;
+            color: transparent;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cell::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(var(--primary) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .cell:hover::before {
+            opacity: 0.1;
+        }
+
+        .cell.x {
+            color: var(--primary);
+            text-shadow: var(--glow) var(--primary);
+        }
+
+        .cell.o {
+            color: var(--secondary);
+            text-shadow: var(--glow) var(--secondary);
+        }
+
+        .winning-cell {
+            animation: win-glow 1s infinite alternate;
+        }
+
+        @keyframes win-glow {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 2rem;
+            margin: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stats-box {
+            background: rgba(255,255,255,0.05);
+            padding: 1.5rem;
+            border-radius: 10px;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .ai-toggle {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .neon-btn {
+            padding: 1rem 2rem;
+            border: 2px solid var(--primary);
+            background: transparent;
+            color: var(--primary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+
+        .neon-btn:hover {
+            background: var(--primary);
+            color: var(--bg);
+            box-shadow: var(--glow) var(--primary);
+        }
+
+        .scanline {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom,
+                transparent 50%,
+                rgba(0,255,157,0.05) 51%,
+                transparent 52%
+            );
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+            z-index: 999;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <div class="cyber-box">
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="dashboard">
+        <div class="stats-box">
+            <h3>Player X</h3>
+            <div class="score" id="scoreX">0</div>
+            <div class="ai-toggle">
+                <label>AI Opponent</label>
+                <select id="ai-mode" onchange="toggleAI()">
+                    <option value="off">Off</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="unbeatable">Unbeatable</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stats-box">
+            <h3>Game Stats</h3>
+            <div>Total Games: <span id="totalGames">0</span></div>
+            <div>Win Rate: <span id="winRate">0%</span></div>
+            <div>Current Streak: <span id="currentStreak">0</span></div>
+        </div>
+    </div>
+
+    <button class="neon-btn" onclick="resetGame()">New Game</button>
+
+    <script>
+        class CyberTacToe {
+            constructor() {
+                this.board = Array(9).fill('');
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+                this.stats = {
+                    xWins: 0,
+                    oWins: 0,
+                    draws: 0,
+                    streak: 0,
+                    totalGames: 0
+                };
+                this.aiMode = 'off';
+                this.init();
+            }
+
+            init() {
+                this.createBoard();
+                this.updateStats();
+            }
+
+            aiEnabled() {
+                return this.aiMode !== 'off';
+            }
+
+            createBoard() {
+                const grid = document.getElementById('grid');
+                grid.innerHTML = '';
+                this.board.forEach((_, i) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.addEventListener('click', () => this.handleMove(i));
+                    grid.appendChild(cell);
+                });
+            }
+
+            handleMove(index) {
+                if (!this.gameActive || this.board[index] || 
+                    (this.aiEnabled() && this.currentPlayer === 'O')) return;
+
+                this.makeMove(index);
+                
+                if (this.checkWin()) {
+                    this.handleWin();
+                } else if (this.isBoardFull()) {
+                    this.handleDraw();
+                } else {
+                    this.switchPlayer();
+                    if (this.aiEnabled()) {
+                        setTimeout(() => this.aiMove(), 500);
+                    }
+                }
+            }
+
+            getRandomMove() {
+                const emptyCells = this.board
+                    .map((cell, index) => cell === '' ? index : null)
+                    .filter(index => index !== null);
+                return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+
+            aiMove() {
+                let index;
+                switch(this.aiMode) {
+                    case 'unbeatable':
+                        index = this.getRandomMove();
+                        break;
+                    case 'medium':
+                        index = this.getRandomMove();
+                        break;
+                    default: // easy
+                        index = this.getRandomMove();
+                }
+                this.makeMove(index);
+            }
+
+            makeMove(index) {
+                this.board[index] = this.currentPlayer;
+                this.updateBoard();
+            }
+
+            updateBoard() {
+                this.board.forEach((cell, i) => {
+                    const el = document.getElementsByClassName('cell')[i];
+                    el.textContent = cell;
+                    el.className = `cell ${cell.toLowerCase()}`;
+                });
+            }
+
+            isBoardFull() {
+                return this.board.every(cell => cell !== '');
+            }
+
+            checkWin() {
+                const winPatterns = [
+                    [0,1,2],[3,4,5],[6,7,8],
+                    [0,3,6],[1,4,7],[2,5,8],
+                    [0,4,8],[2,4,6]
+                ];
+                return winPatterns.some(pattern => 
+                    pattern.every(i => this.board[i] === this.currentPlayer)
+                );
+            }
+
+            handleWin() {
+                this.stats[`${this.currentPlayer.toLowerCase()}Wins`]++;
+                this.stats.streak++;
+                this.stats.totalGames++;
+                this.gameActive = false;
+                this.updateStats();
+                this.highlightWin();
+            }
+
+            highlightWin() {
+                const winPatterns = [
+                    [0,1,2],[3,4,5],[6,7,8],
+                    [0,3,6],[1,4,7],[2,5,8],
+                    [0,4,8],[2,4,6]
+                ];
+                
+                winPatterns.forEach(pattern => {
+                    if (pattern.every(i => this.board[i] === this.currentPlayer)) {
+                        pattern.forEach(i => {
+                            document.getElementsByClassName('cell')[i]
+                                .classList.add('winning-cell');
+                        });
+                    }
+                });
+            }
+
+            handleDraw() {
+                this.stats.draws++;
+                this.stats.totalGames++;
+                this.stats.streak = 0;
+                this.gameActive = false;
+                this.updateStats();
+            }
+
+            switchPlayer() {
+                this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+            }
+
+            updateStats() {
+                document.getElementById('scoreX').textContent = this.stats.xWins;
+                document.getElementById('totalGames').textContent = this.stats.totalGames;
+                document.getElementById('winRate').textContent = 
+                    `${((this.stats.xWins + this.stats.oWins) / this.stats.totalGames * 100 || 0).toFixed(1)}%`;
+                document.getElementById('currentStreak').textContent = this.stats.streak;
+            }
+
+            reset() {
+                this.board = Array(9).fill('');
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+                this.createBoard();
+                this.updateStats();
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.remove('winning-cell');
+                });
+            }
+        }
+
+        const game = new CyberTacToe();
+
+        function toggleAI() {
+            game.aiMode = document.getElementById('ai-mode').value;
+            game.reset();
+        }
+
+        function resetGame() {
+            game.reset();
+        }
+    </script>
+</body>
+</html>
